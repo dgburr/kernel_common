@@ -72,6 +72,7 @@
 
 #include <linux/crc32.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include "ubifs.h"
 
 /**
@@ -878,6 +879,7 @@ int ubifs_read_node(const struct ubifs_info *c, void *buf, int type, int len,
 {
 	int err, l;
 	struct ubifs_ch *ch = buf;
+       int try_count = 0;
 
 	dbg_io("LEB %d:%d, %s, length %d", lnum, offs, dbg_ntype(type), len);
 	ubifs_assert(lnum >= 0 && lnum < c->leb_cnt && offs >= 0);
@@ -885,6 +887,7 @@ int ubifs_read_node(const struct ubifs_info *c, void *buf, int type, int len,
 	ubifs_assert(!(offs & 7) && offs < c->leb_size);
 	ubifs_assert(type >= 0 && type < UBIFS_NODE_TYPES_CNT);
 
+try_read:
 	err = ubi_read(c->ubi, lnum, buf, offs, len);
 	if (err && err != -EBADMSG) {
 		ubifs_err("cannot read node %d from LEB %d:%d, error %d",
@@ -901,7 +904,14 @@ int ubifs_read_node(const struct ubifs_info *c, void *buf, int type, int len,
 	err = ubifs_check_node(c, buf, lnum, offs, 0, 0);
 	if (err) {
 		ubifs_err("expected node type %d", type);
-		return err;
+              if(try_count < 3){
+                  try_count++;
+                  udelay(100);
+                  goto try_read;
+              }
+              else{
+		   return err;
+              }
 	}
 
 	l = le32_to_cpu(ch->len);

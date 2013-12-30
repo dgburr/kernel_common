@@ -287,8 +287,9 @@ cmd_record_mcount = 						\
 		$(sub_cmd_record_mcount)			\
 	fi;
 endif
-
+cmd_mk_target_dir = [ -d $(@D) ] || mkdir -p $(@D)
 define rule_cc_o_c
+	$(call echo-cmd,mk_target_dir) $(cmd_mk_target_dir) ;						\
 	$(call echo-cmd,checksrc) $(cmd_checksrc)			  \
 	$(call echo-cmd,cc_o_c) $(cmd_cc_o_c);				  \
 	$(cmd_modversions)						  \

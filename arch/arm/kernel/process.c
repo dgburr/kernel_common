@@ -39,6 +39,12 @@
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
 
+#if defined (CONFIG_PLAT_MESON)
+#include <asm/cacheflush.h>
+#include <plat/sram.h>
+#include <plat/io.h>
+#endif /* CONFIG_PLAT_MESON */
+
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
 unsigned long __stack_chk_guard __read_mostly;
@@ -130,6 +136,20 @@ void arm_machine_flush_console(void)
 
 void arm_machine_restart(char mode, const char *cmd)
 {
+#if defined (CONFIG_PLAT_MESON) && !defined(CONFIG_ARCH_MESON2)
+    u32 reboot_reason = MESON_NORMAL_BOOT;
+    if (cmd) {
+        if (strcmp(cmd, "recovery") == 0)
+            reboot_reason = MESON_FACTORY_RESET_REBOOT;
+        else if (strcmp(cmd, "charging_reboot") == 0)
+            reboot_reason = MESON_CHARGING_REBOOT;
+        else if (strcmp(cmd, "factory_testl_reboot") == 0)
+            reboot_reason = MESON_FACTORY_TEST_REBOOT;
+    }
+    aml_write_reg32(P_AO_RTI_STATUS_REG1, reboot_reason);
+    printk("reboot_reason(0x%x) = 0x%x\n", P_AO_RTI_STATUS_REG1, aml_read_reg32(P_AO_RTI_STATUS_REG1));
+#endif /* CONFIG_PLAT_MESON */
+
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */
 	arm_machine_flush_console();
@@ -230,11 +250,10 @@ void cpu_idle(void)
 			if (cpu_is_offline(smp_processor_id()))
 				cpu_die();
 #endif
-
-			local_irq_disable();
-#ifdef CONFIG_PL310_ERRATA_769419
-			wmb();
+#ifdef CONFIG_SMP
+///            wmb();///CONFIG_PL310_ERRATA_769419
 #endif
+			local_irq_disable();
 			if (hlt_counter) {
 				local_irq_enable();
 				cpu_relax();
@@ -272,15 +291,6 @@ __setup("reboot=", reboot_setup);
 void machine_shutdown(void)
 {
 #ifdef CONFIG_SMP
-	/*
-	 * Disable preemption so we're guaranteed to
-	 * run to power off or reboot and prevent
-	 * the possibility of switching to another
-	 * thread that might wind up blocking on
-	 * one of the stopped CPUs.
-	 */
-	preempt_disable();
-
 	smp_send_stop();
 #endif
 }
@@ -309,9 +319,9 @@ void machine_restart(char *cmd)
  */
 static void show_data(unsigned long addr, int nbytes, const char *name)
 {
-	int	i, j;
-	int	nlines;
-	u32	*p;
+	int i, j;
+	int nlines;
+	u32 *p;
 
 	/*
 	 * don't attempt to dump non-kernel addresses or
@@ -338,7 +348,7 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 		 */
 		printk("%04lx ", (unsigned long)p & 0xffff);
 		for (j = 0; j < 8; j++) {
-			u32	data;
+			u32 data;
 			if (probe_kernel_address(p, data)) {
 				printk(" ********");
 			} else {
@@ -380,15 +390,15 @@ void __show_regs(struct pt_regs *regs)
 	unsigned long flags;
 	char buf[64];
 
-	printk("CPU: %d    %s  (%s %.*s)\n",
+	printk("CPU: %d	%s  (%s %.*s)\n",
 		raw_smp_processor_id(), print_tainted(),
 		init_utsname()->release,
 		(int)strcspn(init_utsname()->version, " "),
 		init_utsname()->version);
 	print_symbol("PC is at %s\n", instruction_pointer(regs));
 	print_symbol("LR is at %s\n", regs->ARM_lr);
-	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
-	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
+	printk("pc : [<%08lx>]	lr : [<%08lx>]	psr: %08lx\n"
+		   "sp : %08lx  ip : %08lx  fp : %08lx\n",
 		regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr,
 		regs->ARM_sp, regs->ARM_ip, regs->ARM_fp);
 	printk("r10: %08lx  r9 : %08lx  r8 : %08lx\n",
@@ -423,10 +433,10 @@ void __show_regs(struct pt_regs *regs)
 		{
 			unsigned int transbase, dac;
 			asm("mrc p15, 0, %0, c2, c0\n\t"
-			    "mrc p15, 0, %1, c3, c0\n"
-			    : "=r" (transbase), "=r" (dac));
+				"mrc p15, 0, %1, c3, c0\n"
+				: "=r" (transbase), "=r" (dac));
 			snprintf(buf, sizeof(buf), "  Table: %08x  DAC: %08x",
-			  	transbase, dac);
+				transbase, dac);
 		}
 #endif
 		asm("mrc p15, 0, %0, c1, c0\n" : "=r" (ctrl));
@@ -480,7 +490,7 @@ asmlinkage void ret_from_fork(void) __asm__("ret_from_fork");
 
 int
 copy_thread(unsigned long clone_flags, unsigned long stack_start,
-	    unsigned long stk_sz, struct task_struct *p, struct pt_regs *regs)
+        unsigned long stk_sz, struct task_struct *p, struct pt_regs *regs)
 {
 	struct thread_info *thread = task_thread_info(p);
 	struct pt_regs *childregs = task_pt_regs(p);
@@ -533,35 +543,35 @@ EXPORT_SYMBOL(dump_fpu);
  * the thread function, and r6 points to the exit function.
  */
 extern void kernel_thread_helper(void);
-asm(	".pushsection .text\n"
-"	.align\n"
-"	.type	kernel_thread_helper, #function\n"
+asm(    ".pushsection .text\n"
+"   .align\n"
+"   .type   kernel_thread_helper, #function\n"
 "kernel_thread_helper:\n"
 #ifdef CONFIG_TRACE_IRQFLAGS
-"	bl	trace_hardirqs_on\n"
+"   bl  trace_hardirqs_on\n"
 #endif
-"	msr	cpsr_c, r7\n"
-"	mov	r0, r4\n"
-"	mov	lr, r6\n"
-"	mov	pc, r5\n"
-"	.size	kernel_thread_helper, . - kernel_thread_helper\n"
-"	.popsection");
+"   msr cpsr_c, r7\n"
+"   mov r0, r4\n"
+"   mov lr, r6\n"
+"   mov pc, r5\n"
+"   .size   kernel_thread_helper, . - kernel_thread_helper\n"
+"   .popsection");
 
 #ifdef CONFIG_ARM_UNWIND
 extern void kernel_thread_exit(long code);
-asm(	".pushsection .text\n"
-"	.align\n"
-"	.type	kernel_thread_exit, #function\n"
+asm(    ".pushsection .text\n"
+"   .align\n"
+"   .type   kernel_thread_exit, #function\n"
 "kernel_thread_exit:\n"
-"	.fnstart\n"
-"	.cantunwind\n"
-"	bl	do_exit\n"
-"	nop\n"
-"	.fnend\n"
-"	.size	kernel_thread_exit, . - kernel_thread_exit\n"
-"	.popsection");
+"   .fnstart\n"
+"   .cantunwind\n"
+"   bl  do_exit\n"
+"   nop\n"
+"   .fnend\n"
+"   .size   kernel_thread_exit, . - kernel_thread_exit\n"
+"   .popsection");
 #else
-#define kernel_thread_exit	do_exit
+#define kernel_thread_exit  do_exit
 #endif
 
 /*
@@ -593,7 +603,7 @@ unsigned long get_wchan(struct task_struct *p)
 
 	frame.fp = thread_saved_fp(p);
 	frame.sp = thread_saved_sp(p);
-	frame.lr = 0;			/* recovered from the stack */
+	frame.lr = 0;		   /* recovered from the stack */
 	frame.pc = thread_saved_pc(p);
 	do {
 		int ret = unwind_frame(&frame);

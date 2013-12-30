@@ -171,7 +171,11 @@ int nandmtd1_read_chunk_tags(struct yaffs_dev *dev,
 			"read_oob failed, chunk %d, mtd error %d",
 			nand_chunk, retval);
 	}
-
+	
+	//EUCLEAN is data corrected by ecc so needn`t return error
+	if (retval == -EUCLEAN)
+		retval = 0;	
+		
 	switch (retval) {
 	case 0:
 		/* no error */

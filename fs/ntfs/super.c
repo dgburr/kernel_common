@@ -3147,7 +3147,7 @@ static int __init init_ntfs_fs(void)
 	}
 
 	/* Register the ntfs sysctls. */
-	err = ntfs_sysctl(1);
+//	err = ntfs_sysctl(1);
 	if (err) {
 		printk(KERN_CRIT "NTFS: Failed to register NTFS sysctls!\n");
 		goto sysctl_err_out;

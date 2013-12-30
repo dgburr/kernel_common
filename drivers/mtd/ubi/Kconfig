@@ -60,4 +60,10 @@ config MTD_UBI_DEBUG
 	help
 	  This option enables UBI debugging.
 
+config MTD_UBI_IGNORE_IO_BITFLIPS
+	bool "ignore UBI UBI_IO_BITFLIPS"
+	default y
+	help
+	  this option ignore UBI_IO_BITFLIPS
+
 endif # MTD_UBI

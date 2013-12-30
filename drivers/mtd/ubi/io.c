@@ -185,7 +185,11 @@ retry:
 			 */
 			dbg_msg("fixable bit-flip detected at PEB %d", pnum);
 			ubi_assert(len == read);
+			#ifdef CONFIG_MTD_UBI_IGNORE_IO_BITFLIPS
+			return 0;/*just ignore bitflip*/
+			#else
 			return UBI_IO_BITFLIPS;
+			#endif
 		}
 
 		if (retries++ < UBI_IO_RETRIES) {
@@ -215,6 +219,10 @@ retry:
 		if (ubi_dbg_is_bitflip()) {
 			dbg_gen("bit-flip (emulated)");
 			err = UBI_IO_BITFLIPS;
+			#ifdef CONFIG_MTD_UBI_IGNORE_IO_BITFLIPS
+			err = 0;
+			//printk("ubi test UBI_IO_BITFLIPS error\n");
+			#endif
 		}
 	}
 
@@ -840,7 +848,19 @@ int ubi_io_read_ec_hdr(struct ubi_device *ubi, int pnum,
 	 * If there was %-EBADMSG, but the header CRC is still OK, report about
 	 * a bit-flip to force scrubbing on this PEB.
 	 */
+	#ifdef CONFIG_MTD_UBI_IGNORE_IO_BITFLIPS
+	if( read_err)
+	{
+	    printk("ubi ubi_io_read_ec_hdr error:%d\n",read_err);
+	    return 0;
+	}
+	else
+	{
+	    return 0;
+	}
+	#else
 	return read_err ? UBI_IO_BITFLIPS : 0;
+	#endif
 }
 
 /**
@@ -1085,7 +1105,19 @@ int ubi_io_read_vid_hdr(struct ubi_device *ubi, int pnum,
 		return -EINVAL;
 	}
 
+	#ifdef CONFIG_MTD_UBI_IGNORE_IO_BITFLIPS
+	if(read_err)
+	{
+	    printk("ubi ubi_io_read_vid_hdr read_err:%d\n",read_err);
+	    return 0;
+	}
+	else
+	{
+	    return 0;
+	}
+	#else
 	return read_err ? UBI_IO_BITFLIPS : 0;
+	#endif
 }
 
 /**

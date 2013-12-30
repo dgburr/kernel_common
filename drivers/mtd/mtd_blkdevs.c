@@ -128,6 +128,75 @@ int mtd_blktrans_cease_background(struct mtd_blktrans_dev *dev)
 }
 EXPORT_SYMBOL_GPL(mtd_blktrans_cease_background);
 
+#if 1
+#define blk_queue_plugged(q)    test_bit(18, &(q)->queue_flags)
+static int mtd_blktrans_thread(void *arg)
+{
+	struct mtd_blktrans_dev *dev = arg;
+	struct mtd_blktrans_ops *tr = dev->tr;
+	struct request_queue *rq = dev->rq;
+	struct request *req = NULL;
+	int res;
+	int background_done = 0;
+
+	spin_lock_irq(rq->queue_lock);
+    
+	while (!kthread_should_stop()) {
+		
+                dev->bg_stop = false;
+		if (!blk_queue_plugged(rq))
+			req = blk_fetch_request(rq);
+		if (!req) {
+			if (tr->background && !background_done) {
+				spin_unlock_irq(rq->queue_lock);
+				mutex_lock(&dev->lock);
+				tr->background(dev);
+				mutex_unlock(&dev->lock);
+				spin_lock_irq(rq->queue_lock);
+				/*
+				 * Do background processing just once per idle
+				 * period.
+				 */
+				background_done = !dev->bg_stop;
+				continue;
+			}
+			set_current_state(TASK_INTERRUPTIBLE);
+			
+            if (kthread_should_stop())
+                set_current_state(TASK_RUNNING);			
+			
+			spin_unlock_irq(rq->queue_lock);
+			schedule();
+			spin_lock_irq(rq->queue_lock);
+			continue;
+		}
+
+		spin_unlock_irq(rq->queue_lock);
+
+		mutex_lock(&dev->lock);
+		res = tr->do_blktrans_request(tr, dev, req);
+		mutex_unlock(&dev->lock);
+
+		spin_lock_irq(rq->queue_lock);
+
+		if (blk_rq_sectors(req) > 0) {
+		 	__blk_end_request(req, res, 512*blk_rq_sectors(req));
+			req = NULL;
+	        }
+	        
+	    background_done = 0;
+	}
+
+	if (req)
+		__blk_end_request_all(req, -EIO);
+
+	spin_unlock_irq(rq->queue_lock);
+
+	return 0;
+}
+
+
+#else
 static int mtd_blktrans_thread(void *arg)
 {
 	struct mtd_blktrans_dev *dev = arg;
@@ -170,7 +239,7 @@ static int mtd_blktrans_thread(void *arg)
 		spin_unlock_irq(rq->queue_lock);
 
 		mutex_lock(&dev->lock);
-		res = do_blktrans_request(dev->tr, dev, req);
+		res = tr->do_blktrans_request(tr, dev, req);
 		mutex_unlock(&dev->lock);
 
 		spin_lock_irq(rq->queue_lock);
@@ -188,6 +257,7 @@ static int mtd_blktrans_thread(void *arg)
 
 	return 0;
 }
+#endif
 
 static void mtd_blktrans_request(struct request_queue *rq)
 {
@@ -302,6 +372,7 @@ static int blktrans_ioctl(struct block_device *bdev, fmode_t mode,
 {
 	struct mtd_blktrans_dev *dev = blktrans_dev_get(bdev->bd_disk);
 	int ret = -ENXIO;
+	struct mtd_blktrans_ops *tr = dev->tr;
 
 	if (!dev)
 		return ret;
@@ -314,6 +385,11 @@ static int blktrans_ioctl(struct block_device *bdev, fmode_t mode,
 	switch (cmd) {
 	case BLKFLSBUF:
 		ret = dev->tr->flush ? dev->tr->flush(dev) : 0;
+		break;
+	case BLKGETSECTS:
+	case BLKFREESECTS:
+		if (tr->update_blktrans_sysinfo)
+			tr->update_blktrans_sysinfo(dev, cmd, arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -415,7 +491,7 @@ int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
 		snprintf(gd->disk_name, sizeof(gd->disk_name),
 			 "%s%d", tr->name, new->devnum);
 
-	set_capacity(gd, (new->size * tr->blksize) >> 9);
+	set_capacity(gd, new->size * (tr->blksize >> 9));
 
 	/* Create the request queue */
 	spin_lock_init(&new->queue_lock);
@@ -567,6 +643,9 @@ int register_mtd_blktrans(struct mtd_blktrans_ops *tr)
 	mtd_for_each_device(mtd)
 		if (mtd->type != MTD_ABSENT)
 			tr->add_mtd(tr, mtd);
+
+	if (!tr->do_blktrans_request)
+		tr->do_blktrans_request = do_blktrans_request;
 
 	mutex_unlock(&mtd_table_mutex);
 	return 0;

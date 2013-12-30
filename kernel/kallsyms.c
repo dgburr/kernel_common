@@ -177,8 +177,7 @@ unsigned long kallsyms_lookup_name(const char *name)
 
 	for (i = 0, off = 0; i < kallsyms_num_syms; i++) {
 		off = kallsyms_expand_symbol(off, namebuf);
-
-		if (strcmp(namebuf, name) == 0)
+              	if (strncmp(namebuf,name,strlen(namebuf))==0)
 			return kallsyms_addresses[i];
 	}
 	return module_kallsyms_lookup_name(name);

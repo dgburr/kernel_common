@@ -72,7 +72,6 @@ static const u16 wm8960_reg[WM8960_CACHEREGNUM] = {
 
 struct wm8960_priv {
 	enum snd_soc_control_type control_type;
-	void *control_data;
 	int (*set_bias_level)(struct snd_soc_codec *,
 			      enum snd_soc_bias_level level);
 	struct snd_soc_dapm_widget *lout1;
@@ -159,6 +158,7 @@ static const DECLARE_TLV_DB_SCALE(adc_tlv, -9700, 50, 0);
 static const DECLARE_TLV_DB_SCALE(dac_tlv, -12700, 50, 1);
 static const DECLARE_TLV_DB_SCALE(bypass_tlv, -2100, 300, 0);
 static const DECLARE_TLV_DB_SCALE(out_tlv, -12100, 100, 1);
+static const DECLARE_TLV_DB_MINMAX(input_pag_tlv, 0, 2900);
 
 static const struct snd_kcontrol_new wm8960_snd_controls[] = {
 SOC_DOUBLE_R_TLV("Capture Volume", WM8960_LINVOL, WM8960_RINVOL,
@@ -208,8 +208,13 @@ SOC_SINGLE("ALC Attack", WM8960_ALC3, 0, 15, 0),
 SOC_SINGLE("Noise Gate Threshold", WM8960_NOISEG, 3, 31, 0),
 SOC_SINGLE("Noise Gate Switch", WM8960_NOISEG, 0, 1, 0),
 
+#if 0
 SOC_DOUBLE_R("ADC PCM Capture Volume", WM8960_LINPATH, WM8960_RINPATH,
 	0, 127, 0),
+#else
+SOC_DOUBLE_R_TLV("ADC PCM Capture Volume", WM8960_LINPATH, WM8960_RINPATH,
+	4, 3, 0, input_pag_tlv),
+#endif
 
 SOC_SINGLE_TLV("Left Output Mixer Boost Bypass Volume",
 	       WM8960_BYPASS1, 4, 7, 1, bypass_tlv),
@@ -219,6 +224,10 @@ SOC_SINGLE_TLV("Right Output Mixer Boost Bypass Volume",
 	       WM8960_BYPASS2, 4, 7, 1, bypass_tlv),
 SOC_SINGLE_TLV("Right Output Mixer RINPUT3 Volume",
 	       WM8960_ROUTMIX, 4, 7, 1, bypass_tlv),
+
+SOC_SINGLE("DAC Mono Mix", WM8960_ADDCTL1, 4, 1, 0),
+
+SOC_SINGLE("ADC Output Select", WM8960_ADDCTL1, 2, 3, 0),
 };
 
 static const struct snd_kcontrol_new wm8960_lin_boost[] = {
@@ -278,8 +287,8 @@ SND_SOC_DAPM_MIXER("Left Input Mixer", WM8960_POWER3, 5, 0,
 SND_SOC_DAPM_MIXER("Right Input Mixer", WM8960_POWER3, 4, 0,
 		   wm8960_rin, ARRAY_SIZE(wm8960_rin)),
 
-SND_SOC_DAPM_ADC("Left ADC", "Capture", WM8960_POWER2, 3, 0),
-SND_SOC_DAPM_ADC("Right ADC", "Capture", WM8960_POWER2, 2, 0),
+SND_SOC_DAPM_ADC("Left ADC", "Capture", WM8960_POWER1, 3, 0),
+SND_SOC_DAPM_ADC("Right ADC", "Capture", WM8960_POWER1, 2, 0),
 
 SND_SOC_DAPM_DAC("Left DAC", "Playback", WM8960_POWER2, 8, 0),
 SND_SOC_DAPM_DAC("Right DAC", "Playback", WM8960_POWER2, 7, 0),
@@ -575,6 +584,8 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 
 	case SND_SOC_BIAS_STANDBY:
 		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
+			snd_soc_cache_sync(codec);
+
 			/* Enable anti-pop features */
 			snd_soc_write(codec, WM8960_APOP1,
 				      WM8960_POBCTRL | WM8960_SOFT_ST |
@@ -586,8 +597,9 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 			snd_soc_write(codec, WM8960_POWER1, reg);
 			msleep(100);
 
-			/* Enable VREF */
-			snd_soc_write(codec, WM8960_POWER1, reg | WM8960_VREF);
+			/* Enable VREF and Mic Bias */
+			reg = snd_soc_read(codec, WM8960_POWER1);
+			snd_soc_write(codec, WM8960_POWER1, reg | WM8960_VREF | (1 << 1));
 
 			/* Disable anti-pop features */
 			snd_soc_write(codec, WM8960_APOP1, WM8960_BUFIOEN);
@@ -613,7 +625,6 @@ static int wm8960_set_bias_level_out3(struct snd_soc_codec *codec,
 	}
 
 	codec->dapm.bias_level = level;
-
 	return 0;
 }
 
@@ -677,6 +688,9 @@ static int wm8960_set_bias_level_capless(struct snd_soc_codec *codec,
 					    WM8960_VREF | WM8960_VMID_MASK, 0);
 			break;
 
+		case SND_SOC_BIAS_OFF:
+			snd_soc_cache_sync(codec);
+			break;
 		default:
 			break;
 		}
@@ -902,16 +916,6 @@ static int wm8960_suspend(struct snd_soc_codec *codec, pm_message_t state)
 static int wm8960_resume(struct snd_soc_codec *codec)
 {
 	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
-	int i;
-	u8 data[2];
-	u16 *cache = codec->reg_cache;
-
-	/* Sync reg_cache with the hardware */
-	for (i = 0; i < ARRAY_SIZE(wm8960_reg); i++) {
-		data[0] = (i << 1) | ((cache[i] >> 8) & 0x0001);
-		data[1] = cache[i] & 0x00ff;
-		codec->hw_write(codec->control_data, data, 2);
-	}
 
 	wm8960->set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	return 0;
@@ -925,7 +929,6 @@ static int wm8960_probe(struct snd_soc_codec *codec)
 	u16 reg;
 
 	wm8960->set_bias_level = wm8960_set_bias_level_out3;
-	codec->control_data = wm8960->control_data;
 
 	if (!pdata) {
 		dev_warn(codec->dev, "No platform data supplied\n");
@@ -1015,7 +1018,6 @@ static __devinit int wm8960_i2c_probe(struct i2c_client *i2c,
 
 	i2c_set_clientdata(i2c, wm8960);
 	wm8960->control_type = SND_SOC_I2C;
-	wm8960->control_data = i2c;
 
 	ret = snd_soc_register_codec(&i2c->dev,
 			&soc_codec_dev_wm8960, &wm8960_dai, 1);

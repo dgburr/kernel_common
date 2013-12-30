@@ -760,7 +760,11 @@ EXPORT_SYMBOL_GPL(spi_setup);
 static int __spi_async(struct spi_device *spi, struct spi_message *message)
 {
 	struct spi_master *master = spi->master;
+#ifdef CONFIG_ARCH_MESON6
+	unsigned long flags;
 
+	spin_lock_irqsave(&master->bus_lock_spinlock, flags);
+#endif
 	/* Half-duplex links include original MicroWire, and ones with
 	 * only one data pin like SPI_3WIRE (switches direction) or where
 	 * either MOSI or MISO is missing.  They can also be caused by
@@ -783,6 +787,9 @@ static int __spi_async(struct spi_device *spi, struct spi_message *message)
 
 	message->spi = spi;
 	message->status = -EINPROGRESS;
+#ifdef CONFIG_ARCH_MESON6
+	spin_unlock_irqrestore(&master->bus_lock_spinlock, flags);
+#endif
 	return master->transfer(spi, message);
 }
 
@@ -867,14 +874,16 @@ int spi_async_locked(struct spi_device *spi, struct spi_message *message)
 {
 	struct spi_master *master = spi->master;
 	int ret;
+#ifndef CONFIG_ARCH_MESON6
 	unsigned long flags;
 
 	spin_lock_irqsave(&master->bus_lock_spinlock, flags);
-
+#endif
 	ret = __spi_async(spi, message);
 
+#ifndef CONFIG_ARCH_MESON6
 	spin_unlock_irqrestore(&master->bus_lock_spinlock, flags);
-
+#endif
 	return ret;
 
 }
@@ -912,7 +921,9 @@ static int __spi_sync(struct spi_device *spi, struct spi_message *message,
 		mutex_unlock(&master->bus_lock_mutex);
 
 	if (status == 0) {
+#ifndef CONFIG_AMLOGIC_SPI_NOR		
 		wait_for_completion(&done);
+#endif		
 		status = message->status;
 	}
 	message->context = NULL;

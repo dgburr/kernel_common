@@ -39,13 +39,13 @@ static struct clk_lookup *clk_find(const char *dev_id, const char *con_id)
 
 	list_for_each_entry(p, &clocks, node) {
 		match = 0;
-		if (p->dev_id) {
-			if (!dev_id || strcmp(p->dev_id, dev_id))
+		if (dev_id) {
+			if (!p->dev_id || strcmp(p->dev_id, dev_id))
 				continue;
 			match += 2;
 		}
-		if (p->con_id) {
-			if (!con_id || strcmp(p->con_id, con_id))
+		if (con_id) {
+			if (!p->con_id || strcmp(p->con_id, con_id))
 				continue;
 			match += 1;
 		}
@@ -173,3 +173,19 @@ void clkdev_drop(struct clk_lookup *cl)
 	kfree(cl);
 }
 EXPORT_SYMBOL(clkdev_drop);
+
+/*
+ * get clock lookup item form table.
+ */
+struct clk_lookup * lookup_clk(struct clk* clk)
+{
+	struct clk_lookup *p, *cl = NULL;
+	list_for_each_entry(p, &clocks, node) {
+		if(p->clk == clk){
+			cl = p;
+			break;
+		}
+	}
+	return cl;
+}
+EXPORT_SYMBOL(lookup_clk);

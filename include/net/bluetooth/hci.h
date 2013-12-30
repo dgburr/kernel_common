@@ -37,6 +37,9 @@
 #define HCI_DEV_DOWN			4
 #define HCI_DEV_SUSPEND			5
 #define HCI_DEV_RESUME			6
+/* add by jiamin, to notify whether bt is in transfer */
+#define HCI_DEV_RUN			7
+#define HCI_DEV_IDLE		8
 
 /* HCI notify events */
 #define HCI_NOTIFY_CONN_ADD		1

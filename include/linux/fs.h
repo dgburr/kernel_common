@@ -53,6 +53,11 @@ struct inodes_stat_t {
 	int dummy[5];		/* padding for sysctl ABI compatibility */
 };
 
+struct fat_sectors
+{
+	sector_t start;
+	sector_t sectors;
+};
 
 #define NR_FILE  8192	/* this can well be larger on a larger system */
 
@@ -317,6 +322,8 @@ struct inodes_stat_t {
 #define BLKPBSZGET _IO(0x12,123)
 #define BLKDISCARDZEROES _IO(0x12,124)
 #define BLKSECDISCARD _IO(0x12,125)
+#define BLKGETSECTS  _IOW(0x12,125,struct fat_sectors)
+#define BLKFREESECTS  _IOW(0x12,126,struct fat_sectors)
 
 #define BMAP_IOCTL 1		/* obsolete - kept for compatibility */
 #define FIBMAP	   _IO(0x00,1)	/* bmap access */

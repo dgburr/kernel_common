@@ -16,6 +16,7 @@
 #include <linux/earlysuspend.h>
 #include <linux/module.h>
 #include <linux/wait.h>
+#include <linux/delay.h>
 
 #include "power.h"
 
@@ -32,6 +33,12 @@ static void stop_drawing_early_suspend(struct early_suspend *h)
 {
 	int ret;
 	unsigned long irq_flags;
+
+#ifdef CONFIG_SCREEN_ON_EARLY
+	msleep(4000); //wait key guard to be drawn
+#else
+	msleep(500); 
+#endif
 
 	spin_lock_irqsave(&fb_state_lock, irq_flags);
 	fb_state = FB_STATE_REQUEST_STOP_DRAWING;
@@ -55,6 +62,7 @@ static void start_drawing_late_resume(struct early_suspend *h)
 	fb_state = FB_STATE_DRAWING_OK;
 	spin_unlock_irqrestore(&fb_state_lock, irq_flags);
 	wake_up(&fb_state_wq);
+	msleep(100);
 }
 
 static struct early_suspend stop_drawing_early_suspend_desc = {

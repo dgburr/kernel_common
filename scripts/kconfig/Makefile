@@ -116,10 +116,16 @@ else
 	@echo "*** Default configuration is based on '$(KBUILD_DEFCONFIG)'"
 	$(Q)$< --defconfig=arch/$(SRCARCH)/configs/$(KBUILD_DEFCONFIG) $(Kconfig)
 endif
-
+extdefconfig:$(obj)/conf
+	$(Q)$< --defconfig=$(KBUILD_EXT_DEFCONFIG) $(Kconfig)
 %_defconfig: $(obj)/conf
-	$(Q)$< --defconfig=arch/$(SRCARCH)/configs/$@ $(Kconfig)
-
+	@echo "*** Default configuration is based on '$@'"
+	$(Q)$< --defconfig=$(strip \
+				$(if $(strip $(firstword $(wildcard $(srctree)/arch/$(SRCARCH)/configs/$@ \
+								$(srctree)/$(CUSTOMER_DIR_NAME)/configs/$@))), \
+				$(firstword $(wildcard $(srctree)/arch/$(SRCARCH)/configs/$@ \
+						$(srctree)/$(CUSTOMER_DIR_NAME)/configs/$@)), \
+				$(srctree)/arch/$(SRCARCH)/configs/$@)) $(Kconfig)
 # Help text used by make help
 help:
 	@echo  '  config	  - Update current config utilising a line-oriented program'

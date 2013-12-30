@@ -141,6 +141,11 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 		gic_arch_extn.irq_set_type(d, type);
 
 	val = readl_relaxed(base + GIC_DIST_CONFIG + confoff);
+	/**
+	 *
+	 * @todo This function might have problem for amlogic Jerry Yu
+	 *
+	 */
 	if (type == IRQ_TYPE_LEVEL_HIGH)
 		val &= ~confmask;
 	else if (type == IRQ_TYPE_EDGE_RISING)
@@ -287,7 +292,16 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 	 * Set all global interrupts to be level triggered, active low.
 	 */
 	for (i = 32; i < gic_irqs; i += 16)
-		writel_relaxed(0, base + GIC_DIST_CONFIG + i * 4 / 16);
+	{
+#if CONFIG_PLAT_MESON
+
+		writel_relaxed(0xffffffff, base + GIC_DIST_CONFIG + i * 4 / 16);
+#else
+	        writel_relaxed(0, base + GIC_DIST_CONFIG + i * 4 / 16);
+#endif
+	}
+
+
 
 	/*
 	 * Set all global interrupts to this CPU only.
@@ -361,7 +375,7 @@ void __init gic_init(unsigned int gic_nr, unsigned int irq_start,
 	gic->dist_base = dist_base;
 	gic->cpu_base = cpu_base;
 	gic->irq_offset = (irq_start - 1) & ~31;
-
+	printk( "%s: irq_offset=%d\n",__func__,gic->irq_offset);
 	if (gic_nr == 0)
 		gic_cpu_base_addr = cpu_base;
 

@@ -26,6 +26,7 @@
 #include <linux/percpu.h>
 #include <linux/clockchips.h>
 #include <linux/completion.h>
+#include <linux/cpufreq.h>
 
 #include <asm/atomic.h>
 #include <asm/cacheflush.h>
@@ -121,7 +122,7 @@ int __cpuinit __cpu_up(unsigned int cpu)
 		 * CPU was successfully started, wait for it
 		 * to come online or time out.
 		 */
-		timeout = jiffies + HZ;
+		timeout = jiffies + (10 * HZ);
 		while (time_before(jiffies, timeout)) {
 			if (cpu_online(cpu))
 				break;
@@ -232,6 +233,7 @@ void __cpu_die(unsigned int cpu)
 void __ref cpu_die(void)
 {
 	unsigned int cpu = smp_processor_id();
+	static bool booted;
 
 	idle_task_exit();
 
@@ -310,7 +312,9 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 
 	notify_cpu_starting(cpu);
 
-	calibrate_delay();
+	if (!booted)
+		calibrate_delay();
+	booted = true;
 
 	smp_store_cpu_info(cpu);
 

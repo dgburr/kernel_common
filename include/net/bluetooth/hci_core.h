@@ -226,6 +226,9 @@ struct hci_dev {
 	struct rfkill		*rfkill;
 
 	struct module		*owner;
+/* to notify whether bt is in transfer */
+    struct timer_list timer;
+    struct hci_dev_stats old_stat; 
 
 	int (*open)(struct hci_dev *hdev);
 	int (*close)(struct hci_dev *hdev);

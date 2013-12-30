@@ -1216,8 +1216,11 @@ void mmc_detect_change(struct mmc_host *host, unsigned long delay)
 	WARN_ON(host->removed);
 	spin_unlock_irqrestore(&host->lock, flags);
 #endif
-
+#ifndef CONFIG_MMC_AML
+// comment for android power suspend
+// reference  kernel 3.2
 	wake_lock(&host->detect_wake_lock);
+#endif
 	mmc_schedule_delayed_work(&host->detect, delay);
 }
 
@@ -1679,6 +1682,12 @@ void mmc_rescan(struct work_struct *work)
 	mmc_release_host(host);
 
  out:
+#ifdef CONFIG_MMC_AML
+//for adroid early suspend
+//reference kernel 3.2
+	if (host->caps & MMC_CAP_NEEDS_POLL)
+		mmc_schedule_delayed_work(&host->detect, HZ);
+#else
 	if (extend_wakelock)
 		wake_lock_timeout(&host->detect_wake_lock, HZ / 2);
 	else
@@ -1687,6 +1696,7 @@ void mmc_rescan(struct work_struct *work)
 		wake_lock(&host->detect_wake_lock);
 		mmc_schedule_delayed_work(&host->detect, HZ);
 	}
+#endif
 }
 
 void mmc_start_host(struct mmc_host *host)
@@ -1706,8 +1716,12 @@ void mmc_stop_host(struct mmc_host *host)
 
 	if (host->caps & MMC_CAP_DISABLE)
 		cancel_delayed_work(&host->disable);
+#ifdef CONFIG_MMC_AML
+	cancel_delayed_work_sync(&host->detect);
+#else
 	if (cancel_delayed_work_sync(&host->detect))
 		wake_unlock(&host->detect_wake_lock);
+#endif
 	mmc_flush_scheduled_work();
 
 	/* clear pm flags now and let card drivers set them as needed */
@@ -1829,8 +1843,12 @@ int mmc_suspend_host(struct mmc_host *host)
 
 	if (host->caps & MMC_CAP_DISABLE)
 		cancel_delayed_work(&host->disable);
+#ifdef CONFIG_MMC_AML
+	cancel_delayed_work(&host->detect);
+#else
 	if (cancel_delayed_work(&host->detect))
 		wake_unlock(&host->detect_wake_lock);
+#endif
 	mmc_flush_scheduled_work();
 
 	mmc_bus_get(host);
@@ -1934,8 +1952,12 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		}
 		host->rescan_disable = 1;
 		spin_unlock_irqrestore(&host->lock, flags);
+#ifdef CONFIG_MMC_AML
+		cancel_delayed_work_sync(&host->detect);
+#else
 		if (cancel_delayed_work_sync(&host->detect))
 			wake_unlock(&host->detect_wake_lock);
+#endif
 
 		if (!host->bus_ops || host->bus_ops->suspend)
 			break;

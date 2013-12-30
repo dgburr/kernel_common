@@ -16,6 +16,8 @@
 #include <linux/mutex.h>
 #include <linux/gfp.h>
 #include <linux/suspend.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/cpu_hotplug.h>
 
 #ifdef CONFIG_SMP
 /* Serializes the updates to cpu_online_mask, cpu_present_mask */
@@ -197,10 +199,13 @@ struct take_cpu_down_param {
 static int __ref take_cpu_down(void *_param)
 {
 	struct take_cpu_down_param *param = _param;
+	unsigned int cpu = (unsigned int)(param->hcpu);
 	int err;
 
 	/* Ensure this CPU doesn't handle any more interrupts. */
+	trace_cpu_hotplug_disable_start(cpu);
 	err = __cpu_disable();
+	trace_cpu_hotplug_disable_end(cpu);
 	if (err < 0)
 		return err;
 
@@ -256,7 +261,9 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 		cpu_relax();
 
 	/* This actually kills the CPU. */
+	trace_cpu_hotplug_die_start(cpu);
 	__cpu_die(cpu);
+	trace_cpu_hotplug_die_end(cpu);
 
 	/* CPU is completely dead: tell everyone.  Too late to complain. */
 	cpu_notify_nofail(CPU_DEAD | mod, hcpu);
@@ -275,6 +282,7 @@ int __ref cpu_down(unsigned int cpu)
 	int err;
 
 	cpu_maps_update_begin();
+	trace_cpu_hotplug_down_start(cpu);
 
 	if (cpu_hotplug_disabled) {
 		err = -EBUSY;
@@ -283,7 +291,13 @@ int __ref cpu_down(unsigned int cpu)
 
 	err = _cpu_down(cpu, 0);
 
+#ifdef CONFIG_MESON6_SMP_HOTPLUG
+	extern void disable_cpu_fw();
+	disable_cpu_fw();
+#endif
 out:
+	trace_cpu_hotplug_down_end(cpu);
+
 	cpu_maps_update_done();
 	return err;
 }
@@ -309,8 +323,14 @@ static int __cpuinit _cpu_up(unsigned int cpu, int tasks_frozen)
 		goto out_notify;
 	}
 
+#ifdef CONFIG_MESON6_SMP_HOTPLUG
+	extern void restore_cpu_fw();
+	restore_cpu_fw();
+#endif
 	/* Arch-specific enabling code. */
+	trace_cpu_hotplug_arch_up_start(cpu);
 	ret = __cpu_up(cpu);
+	trace_cpu_hotplug_arch_up_end(cpu);
 	if (ret != 0)
 		goto out_notify;
 	BUG_ON(!cpu_online(cpu));
@@ -368,6 +388,7 @@ int __cpuinit cpu_up(unsigned int cpu)
 #endif
 
 	cpu_maps_update_begin();
+	trace_cpu_hotplug_up_start(cpu);
 
 	if (cpu_hotplug_disabled) {
 		err = -EBUSY;
@@ -377,6 +398,8 @@ int __cpuinit cpu_up(unsigned int cpu)
 	err = _cpu_up(cpu, 0);
 
 out:
+	trace_cpu_hotplug_up_end(cpu);
+
 	cpu_maps_update_done();
 	return err;
 }

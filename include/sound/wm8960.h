@@ -19,6 +19,10 @@ struct wm8960_data {
 	bool capless;  /* Headphone outputs configured in capless mode */
 
 	int dres;  /* Discharge resistance for headphone outputs */
+
+    int (*hp_detect)(void);
+    void (*device_init)(void);
+    void (*device_uninit)(void);
 };
 
 #endif

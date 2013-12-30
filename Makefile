@@ -192,8 +192,8 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
-ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
+ARCH		?= arm
+CROSS_COMPILE	?= arm-none-linux-gnueabi-
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -379,10 +379,48 @@ KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
+CUSTOMER_DIR_NAME ?= customer
+customer_dir=$(srctree)/$(CUSTOMER_DIR_NAME)
+customer_files=$(customer_dir)/Makefile $(customer_dir)/boards/Kconfig $(customer_dir)/drivers/Kconfig
+customer_file_num=$(words $(wildcard $(customer_files)))
+ifeq ($(customer_file_num),3)
+CONFIG_CUSTOMER=y
+LINUXINCLUDE += $(if $(KBUILD_SRC), -I$(srctree)/customer/include, -Icustomer/include)
+
+else
+ifneq ($(wildcard $(customer_dir)),)
+$(error please check your customer dir , if $(customer_files)  exist)
+endif
+endif
+ifneq ($(EDIR),)
+extern_dir=$(abspath $(EDIR))
+
+extern_files=$(extern_dir)/Makefile $(extern_dir)/boards/Kconfig $(extern_dir)/drivers/Kconfig
+real_files=$(realpath $(abspath $(customer_files) $(extern_files)))
+real_file_num=$(words $(sort $(real_files)))
+extern_file_num=$(words $(realpath $(abspath $(extern_files))))
+ifneq ($(extern_file_num),3)
+$(error please check your customer dir , if $(extern_files)  exist)
+endif
+ifeq ($(real_file_num),6)
+
+EXTERN_CREATE=y
+else
+ifneq ($(real_file_num),3)
+
+$(error please check your customer dir , if $(extern_files) exist)
+endif
+endif
+ifneq ($(words $(realpath $(abspath $(customer_files)))),3)
+
+EXTERN_CREATE=y
+endif
+endif
+
 
 export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
-export CPP AR NM STRIP OBJCOPY OBJDUMP
+export CPP AR NM STRIP OBJCOPY OBJDUMP CUSTOMER_DIR_NAME 
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
 
@@ -424,6 +462,15 @@ ifneq ($(KBUILD_SRC),)
 	$(Q)ln -fsn $(srctree) source
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/mkmakefile \
 	    $(srctree) $(objtree) $(VERSION) $(PATCHLEVEL)
+endif
+ifeq ($(EXTERN_CREATE),y)
+ifneq ($(KBUILD_SRC),)
+	rm -rf $(objtree)/$(CUSTOMER_DIR_NAME)
+endif
+	[ ! -h $(customer_dir) ] || rm -rf $(customer_dir)
+	
+	$(Q)ln -s  $(extern_dir) $(customer_dir)
+#	$(Q)$(MAKE) -f $(srctree)/Makefile $(MAKECMDGOALS)
 endif
 
 # Support for using generic headers in asm-generic
@@ -507,7 +554,10 @@ scripts: scripts_basic include/config/auto.conf include/config/tristate.conf
 
 # Objects we will link into vmlinux / subdirs we need to visit
 init-y		:= init/
-drivers-y	:= drivers/ sound/ firmware/
+drivers-y	:= drivers/ sound/ firmware/ 
+ifeq ($(CONFIG_CUSTOMER),y)
+drivers-y  += $(CUSTOMER_DIR_NAME)/ 
+endif
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
@@ -1219,9 +1269,9 @@ rpm: include/config/kernel.release FORCE
 # Brief documentation of the typical targets used
 # ---------------------------------------------------------------------------
 
-boards := $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*_defconfig)
+boards := $(wildcard $(srctree)/arch/$(SRCARCH)/configs/meson*_defconfig) $(wildcard $(srctree)/${CUSTOMER_DIR_NAME}/configs/meson*_defconfig)
 boards := $(notdir $(boards))
-board-dirs := $(dir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*/*_defconfig))
+board-dirs := $(dir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*/meson*_defconfig))
 board-dirs := $(sort $(notdir $(board-dirs:/=)))
 
 help:

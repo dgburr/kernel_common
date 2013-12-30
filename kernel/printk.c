@@ -57,6 +57,10 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 extern void printascii(char *);
 #endif
 
+#ifdef CONFIG_PLAT_MESON
+extern int fiq_vprintk(const char *fmt, va_list args);
+#endif
+
 /* printk's without a loglevel use this.. */
 #define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
 
@@ -896,6 +900,13 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	char *p;
 	size_t plen;
 	char special;
+#ifdef	CONFIG_PLAT_MESON
+	unsigned long fiqflags;
+
+	raw_local_save_flags(fiqflags);
+	if ((fiqflags & MODE_MASK) == FIQ_MODE || (fiqflags & MODE_MASK) == FIQ26_MODE)
+		return fiq_vprintk(fmt,args);	// In FIQ mode, we can't handle printk.
+#endif
 
 	boot_delay_msec();
 	printk_delay();
@@ -993,9 +1004,15 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
+#ifdef CONFIG_SMP
+				tlen = sprintf(tbuf, "[%5lu.%06lu@%d] ", (unsigned long) t,
+						nanosec_rem / 1000, smp_processor_id());
+
+#else
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
+#endif
 
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);

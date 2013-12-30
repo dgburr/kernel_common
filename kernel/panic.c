@@ -27,6 +27,10 @@
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
+#ifdef CONFIG_HARDWARE_WATCHDOG
+extern void enable_watchdog(void);
+#endif /* ONFIG_HARDWARE_WATCHDOG */
+
 /* Machine specific panic information string */
 char *mach_panic_string;
 
@@ -70,6 +74,9 @@ NORET_TYPE void panic(const char * fmt, ...)
 	long i, i_next = 0;
 	int state = 0;
 
+#ifdef CONFIG_HARDWARE_WATCHDOG
+	enable_watchdog();
+#endif /* CONFIG_HARDWARE_WATCHDOG */
 	/*
 	 * It's possible to come here directly from a panic-assertion and
 	 * not have preempt disabled. Some functions called from here want

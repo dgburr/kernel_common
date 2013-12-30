@@ -19,11 +19,12 @@
 #include <linux/slab.h>
 #include <linux/hrtimer.h>
 #include <linux/err.h>
-#include <linux/gpio.h>
-
+#include <mach/gpio_data.h>
+#include <mach/gpio.h>
 #include "timed_output.h"
 #include "timed_gpio.h"
 
+#define printk_vibrate //printk
 
 struct timed_gpio_data {
 	struct timed_output_dev dev;
@@ -32,14 +33,25 @@ struct timed_gpio_data {
 	unsigned 	gpio;
 	int 		max_timeout;
 	u8 		active_low;
+	struct work_struct work_update;
 };
+
+ 
+ static void update_work_func(struct work_struct *work)
+{
+    struct timed_gpio_data *data = container_of(work, struct timed_gpio_data, work_update);
+	gpio_out(data->gpio, data->active_low ? 1 : 0);
+}
+ 
+
 
 static enum hrtimer_restart gpio_timer_func(struct hrtimer *timer)
 {
 	struct timed_gpio_data *data =
 		container_of(timer, struct timed_gpio_data, timer);
+		
+    schedule_work(&(data->work_update));
 
-	gpio_direction_output(data->gpio, data->active_low ? 1 : 0);
 	return HRTIMER_NORESTART;
 }
 
@@ -56,18 +68,21 @@ static int gpio_get_time(struct timed_output_dev *dev)
 		return 0;
 }
 
+extern int32_t gpio_out_directly(uint32_t ,bool);
+
 static void gpio_enable(struct timed_output_dev *dev, int value)
 {
 	struct timed_gpio_data	*data =
 		container_of(dev, struct timed_gpio_data, dev);
 	unsigned long	flags;
-
-	spin_lock_irqsave(&data->lock, flags);
-
+	printk_vibrate( "vibrator gpio_enable begin\n");
+    value=value*2;
+	//spin_lock_irqsave(&data->lock, flags);
+	spin_lock(&data->lock);
 	/* cancel previous timer and set GPIO according to value */
 	hrtimer_cancel(&data->timer);
-	gpio_direction_output(data->gpio, data->active_low ? !value : !!value);
-
+	gpio_out_directly(data->gpio, data->active_low ? !value: !!value);
+   // printk_vibrate( "vibrator data->gpio=%d,data->active_low=%d,value=%d\n",data->gpio, data->active_low,value);
 	if (value > 0) {
 		if (value > data->max_timeout)
 			value = data->max_timeout;
@@ -77,7 +92,9 @@ static void gpio_enable(struct timed_output_dev *dev, int value)
 			HRTIMER_MODE_REL);
 	}
 
-	spin_unlock_irqrestore(&data->lock, flags);
+	//spin_unlock_irqrestore(&data->lock, flags);
+	spin_unlock(&data->lock);
+	printk_vibrate( "vibrator gpio_enable over\n");
 }
 
 static int timed_gpio_probe(struct platform_device *pdev)
@@ -86,7 +103,7 @@ static int timed_gpio_probe(struct platform_device *pdev)
 	struct timed_gpio *cur_gpio;
 	struct timed_gpio_data *gpio_data, *gpio_dat;
 	int i, j, ret = 0;
-
+	printk_vibrate( "vibrator probe begin\n");
 	if (!pdata)
 		return -EBUSY;
 
@@ -125,11 +142,12 @@ static int timed_gpio_probe(struct platform_device *pdev)
 		gpio_dat->gpio = cur_gpio->gpio;
 		gpio_dat->max_timeout = cur_gpio->max_timeout;
 		gpio_dat->active_low = cur_gpio->active_low;
-		gpio_direction_output(gpio_dat->gpio, gpio_dat->active_low);
+		gpio_out(gpio_dat->gpio, gpio_dat->active_low);
 	}
 
+    INIT_WORK(&(gpio_dat->work_update), update_work_func);
 	platform_set_drvdata(pdev, gpio_data);
-
+    printk_vibrate( "vibrator probe finish\n");
 	return 0;
 }
 

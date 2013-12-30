@@ -647,6 +647,11 @@ void dpm_resume(pm_message_t state)
 			int error;
 
 			mutex_unlock(&dpm_list_mtx);
+			
+#ifdef CONFIG_SUSPEND_WATCHDOG
+			extern void reset_watchdog(void);
+			reset_watchdog();
+#endif
 
 			error = device_resume(dev, state, false);
 			if (error)
@@ -880,7 +885,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	data.dev = dev;
 	data.tsk = get_current();
 	init_timer_on_stack(&timer);
-	timer.expires = jiffies + HZ * 12;
+	timer.expires = jiffies + HZ * 24;
 	timer.function = dpm_drv_timeout;
 	timer.data = (unsigned long)&data;
 	add_timer(&timer);
@@ -1074,10 +1079,18 @@ int dpm_prepare(pm_message_t state)
 
 	might_sleep();
 
+#ifdef CONFIG_SMP
+	printk("%s %d %d %p %d\n",__func__ ,__LINE__,dpm_list_mtx.count,dpm_list_mtx.owner,dpm_list_mtx.wait_lock.rlock.raw_lock.lock);
+#endif /* CONFIG_SMP */
 	mutex_lock(&dpm_list_mtx);
+#ifdef CONFIG_SMP
+	printk("%s %d %d %p %d\n",__func__ ,__LINE__,dpm_list_mtx.count,dpm_list_mtx.owner,dpm_list_mtx.wait_lock.rlock.raw_lock.lock);
+#endif /* CONFIG_SMP */
 	while (!list_empty(&dpm_list)) {
 		struct device *dev = to_device(dpm_list.next);
-
+#ifdef CONFIG_SMP
+		printk("%s %d %s\n",__func__ ,__LINE__,dev_name(dev));
+#endif /* CONFIG_SMP */
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
 

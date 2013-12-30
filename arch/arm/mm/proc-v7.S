@@ -270,6 +270,10 @@ cpu_resume_l1_flags:
  *	Initialise TLB, Caches, and MMU state ready to switch the MMU
  *	on.  Return in r0 the new CP15 C1 control register setting.
  *
+ *	We automatically detect if we have a Harvard cache, and use the
+ *	Harvard cache control instructions insead of the unified cache
+ *	control instructions.
+ *
  *	This should be able to cover all ARMv7 cores.
  *
  *	It is assumed that:
@@ -286,7 +290,8 @@ __v7_ca9mp_setup:
 __v7_setup:
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
-	bl	v7_flush_dcache_all
+@	bl	v7_flush_dcache_all
+	bl	v7_invalidate_dcache_all
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
 
 	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
@@ -357,7 +362,9 @@ __v7_setup:
 #endif
 
 3:	mov	r10, #0
+#ifdef HARVARD_CACHE
 	mcr	p15, 0, r10, c7, c5, 0		@ I+BTB cache invalidate
+#endif
 	dsb
 #ifdef CONFIG_MMU
 	mcr	p15, 0, r10, c8, c7, 0		@ invalidate I + D TLBs

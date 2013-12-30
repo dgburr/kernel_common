@@ -511,7 +511,43 @@ static int __init early_mem(char *p)
 	if (*endp == '@')
 		start = memparse(endp + 1, NULL);
 
+#if defined(CONFIG_PLAT_MESON)
+	{
+		/*
+		 * 64M - 128M is reversed for VIDEO MEMORY
+		 */
+		unsigned long bankstart = start;
+		if (machine_desc &&
+		    machine_desc->video_start > start &&
+		    machine_desc->video_end > machine_desc->video_start) {
+			unsigned long vstart, vend, vsize;
+			vstart = machine_desc->video_start;
+			vend = machine_desc->video_end;
+			vsize = size > (vstart - start) ? (vstart - start) : size;
+			/* 0M - 64M */
+			arm_add_memory(bankstart, vstart - bankstart);
+			bankstart = PAGE_ALIGN(vend);
+		}
+#ifdef CONFIG_MESON_SUSPEND
+		if (bankstart < start + size) {
+			/* 511M - 512M is reserved for suspend firmware. */
+			unsigned long firmwarestart, firmwaresize, firmwareend;
+			firmwarestart = PHYS_OFFSET + CONFIG_MESON_SUSPEND_FIRMWARE_BASE;
+			firmwaresize = SZ_1M;
+			firmwareend = firmwarestart + firmwaresize;
+
+			/* 170M - 511M */
+			arm_add_memory(bankstart, firmwarestart - bankstart);
+			bankstart = PAGE_ALIGN(firmwareend);
+		}
+#endif /* CONFIG_MESON_SUSPEND */
+		/* 172M - end or 512M - end (ifdef CONFIG_MESON_SUSPEND) */
+		if (bankstart < start + size)
+			arm_add_memory(bankstart, start + size - bankstart);
+	}
+#else
 	arm_add_memory(start, size);
+#endif
 
 	return 0;
 }
@@ -562,7 +598,9 @@ static void __init request_standard_resources(struct machine_desc *mdesc)
 	if (mdesc->video_start) {
 		video_ram.start = mdesc->video_start;
 		video_ram.end   = mdesc->video_end;
+#ifndef CONFIG_PLAT_MESON
 		request_resource(&iomem_resource, &video_ram);
+#endif
 	}
 
 	/*

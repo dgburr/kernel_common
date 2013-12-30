@@ -1542,7 +1542,7 @@ static int nand_do_read_ops(struct mtd_info *mtd, loff_t from,
 		/* For subsequent reads align to page boundary. */
 		col = 0;
 		/* Increment page address */
-		realpage++;
+		realpage += (mtd->writesize >> chip->page_shift);
 
 		page = realpage & chip->pagemask;
 		/* Check, if we cross a chip boundary */
@@ -1797,7 +1797,10 @@ static int nand_do_read_oob(struct mtd_info *mtd, loff_t from,
 	page = realpage & chip->pagemask;
 
 	while (1) {
+		if (!sndcmd)
 		sndcmd = chip->ecc.read_oob(mtd, chip, page, sndcmd);
+		else
+			sndcmd = chip->ecc.read_oob(mtd, chip, page, readlen);
 
 		len = min(len, readlen);
 		buf = nand_transfer_oob(chip, buf, ops, len);
@@ -1820,7 +1823,7 @@ static int nand_do_read_oob(struct mtd_info *mtd, loff_t from,
 			break;
 
 		/* Increment page address */
-		realpage++;
+		realpage += (mtd->writesize >> chip->page_shift);
 
 		page = realpage & chip->pagemask;
 		/* Check, if we cross a chip boundary */
@@ -2248,7 +2251,7 @@ static int nand_do_write_ops(struct mtd_info *mtd, loff_t to,
 
 		column = 0;
 		buf += bytes;
-		realpage++;
+		realpage += (mtd->writesize >> chip->page_shift);
 
 		page = realpage & chip->pagemask;
 		/* Check, if we cross a chip boundary */
@@ -2955,12 +2958,14 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 			break;
 
 	chip->onfi_version = 0;
+#if 0
 	if (!type->name || !type->pagesize) {
 		/* Check is chip is ONFI compliant */
 		ret = nand_flash_detect_onfi(mtd, chip, busw);
 		if (ret)
 			goto ident_done;
 	}
+#endif
 
 	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
 

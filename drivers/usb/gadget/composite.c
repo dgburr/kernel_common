@@ -564,7 +564,7 @@ done:
 	return status;
 }
 
-static int unbind_config(struct usb_composite_dev *cdev,
+static int remove_config(struct usb_composite_dev *cdev,
 			      struct usb_configuration *config)
 {
 	while (!list_empty(&config->functions)) {
@@ -579,6 +579,7 @@ static int unbind_config(struct usb_composite_dev *cdev,
 			/* may free memory for "f" */
 		}
 	}
+	list_del(&config->list);
 	if (config->unbind) {
 		DBG(cdev, "unbind config '%s'/%p\n", config->label, config);
 		config->unbind(config);
@@ -597,11 +598,9 @@ int usb_remove_config(struct usb_composite_dev *cdev,
 	if (cdev->config == config)
 		reset_config(cdev);
 
-	list_del(&config->list);
-
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
-	return unbind_config(cdev, config);
+	return remove_config(cdev, config);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -898,6 +897,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			value = config_desc(cdev, w_value);
 			if (value >= 0)
 				value = min(w_length, (u16) value);
+			else
+				usb_gadget_disconnect(gadget);
+			
 			break;
 		case USB_DT_STRING:
 			value = get_string(cdev, req->buf,
@@ -1085,8 +1087,7 @@ composite_unbind(struct usb_gadget *gadget)
 		struct usb_configuration	*c;
 		c = list_first_entry(&cdev->configs,
 				struct usb_configuration, list);
-		list_del(&c->list);
-		unbind_config(cdev, c);
+		remove_config(cdev, c);
 	}
 	if (composite->unbind)
 		composite->unbind(cdev);
@@ -1096,6 +1097,7 @@ composite_unbind(struct usb_gadget *gadget)
 		usb_ep_free_request(gadget->ep0, cdev->req);
 	}
 	device_remove_file(&gadget->dev, &dev_attr_suspended);
+	wake_lock_destroy(&cdev->wake_lock);
 	kfree(cdev);
 	set_gadget_data(gadget, NULL);
 	composite = NULL;
@@ -1126,8 +1128,9 @@ static int composite_bind(struct usb_gadget *gadget)
 	spin_lock_init(&cdev->lock);
 	cdev->gadget = gadget;
 	set_gadget_data(gadget, cdev);
+	gadget->priv_data = &cdev->is_lock;
 	INIT_LIST_HEAD(&cdev->configs);
-
+	wake_lock_init(&cdev->wake_lock, WAKE_LOCK_SUSPEND,  "usb_composite");
 	/* preallocate control response and buffer */
 	cdev->req = usb_ep_alloc_request(gadget->ep0, GFP_KERNEL);
 	if (!cdev->req)

@@ -34,6 +34,43 @@ enum {
 	V4L2_IDENT_NONE      = 0,       /* No chip matched */
 	V4L2_IDENT_AMBIGUOUS = 1,       /* Match too general, multiple chips matched */
 	V4L2_IDENT_UNKNOWN   = 2,       /* Chip found, but cannot identify */
+	
+	
+	/* GT2005, 0x5138= 20792  */
+	V4L2_IDENT_GT2005 =  20,
+
+	/* GC0308, 0x5138= 20792  */
+	V4L2_IDENT_GC0308 =  21,
+
+	/* OV5642,   */
+	V4L2_IDENT_OV5642 =  22,
+	
+	/* SP0838,   */
+	V4L2_IDENT_SP0838 =  23,	
+
+	/* OV7675,   */
+	V4L2_IDENT_OV7675 =  24,
+
+	/* OV2655,   */
+	V4L2_IDENT_OV2655 =  25,
+    
+    /* HI253,   */
+	V4L2_IDENT_HI253 =  26,
+	
+    /* HI704,   */
+	V4L2_IDENT_HI704 =  27,
+	
+	/* GC0339,   */
+	V4L2_IDENT_GC0339 =  28,
+
+	/* HI2056,   */
+	V4L2_IDENT_HI2056 =  29,
+
+	/* GC0307,   */
+	V4L2_IDENT_GC0307 =  30,
+	
+	/* OV3660,   */
+	V4L2_IDENT_OV3660 =	 31,
 
 	/* module tvaudio: reserved range 50-99 */
 	V4L2_IDENT_TVAUDIO = 50,	/* A tvaudio chip, unknown which it is exactly */
@@ -322,6 +359,8 @@ enum {
 	V4L2_IDENT_UPD64083 = 64083,
 
 	/* Don't just add new IDs at the end: KEEP THIS LIST ORDERED BY ID! */
+	
+
 };
 
 #endif

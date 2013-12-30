@@ -12,6 +12,12 @@ menuconfig MTD
 
 if MTD
 
+config MTD_PARTITIONS
+	bool "Partions support"
+	def_bool y
+	help
+	  Normally, you should say 'y'.
+	  
 config MTD_DEBUG
 	bool "Debugging"
 	help

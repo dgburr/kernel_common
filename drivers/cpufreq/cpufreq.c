@@ -258,11 +258,15 @@ void cpufreq_notify_transition(struct cpufreq_freqs *freqs, unsigned int state)
 		}
 		srcu_notifier_call_chain(&cpufreq_transition_notifier_list,
 				CPUFREQ_PRECHANGE, freqs);
+#ifndef CONFIG_PLAT_MESON
 		adjust_jiffies(CPUFREQ_PRECHANGE, freqs);
+#endif
 		break;
 
 	case CPUFREQ_POSTCHANGE:
+#ifndef CONFIG_PLAT_MESON
 		adjust_jiffies(CPUFREQ_POSTCHANGE, freqs);
+#endif
 		pr_debug("FREQ: %lu - CPU: %lu", (unsigned long)freqs->new,
 			(unsigned long)freqs->cpu);
 		trace_power_frequency(POWER_PSTATE, freqs->new, freqs->cpu);

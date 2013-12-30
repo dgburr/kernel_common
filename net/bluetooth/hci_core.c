@@ -494,6 +494,62 @@ done:
 	hci_dev_put(hdev);
 	return err;
 }
+/* to notify whether bt is in transfer */
+static int hci_state_change(struct hci_dev *hdev)
+{
+    struct hci_dev_stats *new_stat = &hdev->stat;
+    struct hci_dev_stats *old_stat = &hdev->old_stat;
+
+    if(new_stat->acl_tx != old_stat->acl_tx){
+        printk(KERN_DEBUG "acl_tx\n");
+        goto diff;
+    }else if(new_stat->acl_rx != old_stat->acl_rx){
+        printk(KERN_DEBUG "acl_rx\n");
+        goto diff;
+    }else if(new_stat->sco_tx != old_stat->sco_tx){
+        printk(KERN_DEBUG "sco_tx\n");
+        goto diff;
+    }else if(new_stat->sco_rx != old_stat->sco_rx){
+        printk(KERN_DEBUG "sco_rx\n");
+        goto diff;
+    }
+
+    /* check whether bt have sco connect */
+    struct list_head *p;
+    hci_dev_lock_bh(hdev);
+    list_for_each(p, &hdev->conn_hash.list) {
+        register struct hci_conn *c;
+        c = list_entry(p, struct hci_conn, list);
+        if (c->type == SCO_LINK) {
+            hci_dev_unlock_bh(hdev);
+            printk(KERN_DEBUG "have sco connect\n");
+            goto diff;
+        }
+    }
+	hci_dev_unlock_bh(hdev);
+
+    return 0;
+diff:
+    old_stat->acl_tx = new_stat->acl_tx;
+    old_stat->acl_rx = new_stat->acl_rx;
+    old_stat->sco_tx = new_stat->sco_tx;
+    old_stat->sco_rx = new_stat->sco_rx;
+    return 1;
+}
+
+static void hdev_timer_handle(unsigned long arg)
+{
+    struct hci_dev *hdev = (struct hci_dev *)(arg);
+    if(hci_state_change(hdev)){
+        printk(KERN_DEBUG "date transfer occure in 6s\n");
+        hci_notify(hdev, HCI_DEV_RUN);
+    }
+    else{
+        printk(KERN_DEBUG "no date transfer occure in 6s\n");
+        hci_notify(hdev, HCI_DEV_IDLE);
+    }
+    mod_timer(&hdev->timer, jiffies + msecs_to_jiffies(HCI_IDLE_TIMEOUT));
+}
 
 /* ---- HCI ioctl helpers ---- */
 
@@ -555,6 +611,12 @@ int hci_dev_open(__u16 dev)
 	if (!ret) {
 		hci_dev_hold(hdev);
 		set_bit(HCI_UP, &hdev->flags);
+        printk("init timer\n");
+        init_timer(&hdev->timer);
+        hdev->timer.function = &hdev_timer_handle;
+        hdev->timer.data = (unsigned long)hdev;
+        hdev->timer.expires = jiffies + msecs_to_jiffies(HCI_IDLE_TIMEOUT);
+        add_timer(&hdev->timer);
 		hci_notify(hdev, HCI_DEV_UP);
 		if (!test_bit(HCI_SETUP, &hdev->flags))
 			mgmt_powered(hdev->id, 1);
@@ -606,6 +668,8 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	inquiry_cache_flush(hdev);
 	hci_conn_hash_flush(hdev);
 	hci_dev_unlock_bh(hdev);
+    printk("del timer\n");
+    del_timer(&hdev->timer);
 
 	hci_notify(hdev, HCI_DEV_DOWN);
 
@@ -1481,7 +1545,7 @@ int hci_register_dev(struct hci_dev *hdev)
 	hdev->idle_timeout = 0;
 	hdev->sniff_max_interval = 800;
 	hdev->sniff_min_interval = 80;
-
+    
 	tasklet_init(&hdev->cmd_task, hci_cmd_task, (unsigned long) hdev);
 	tasklet_init(&hdev->rx_task, hci_rx_task, (unsigned long) hdev);
 	tasklet_init(&hdev->tx_task, hci_tx_task, (unsigned long) hdev);
@@ -1575,7 +1639,6 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	write_unlock_bh(&hci_dev_list_lock);
 
 	hci_dev_do_close(hdev);
-
 	for (i = 0; i < NUM_REASSEMBLY; i++)
 		kfree_skb(hdev->reassembly[i]);
 
