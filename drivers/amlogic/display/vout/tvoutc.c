@@ -33,7 +33,6 @@
 #include <linux/clk.h>
 #include <plat/io.h>
 #include <mach/tvregs.h>
-#include <mach/mod_gate.h>
 #include <linux/vout/enc_clk_config.h>
 
 static u32 curr_vdac_setting=DEFAULT_VDAC_SEQUENCE;

@@ -378,9 +378,12 @@ static void adjust_jiffies(unsigned int freqOld, unsigned int freqNew)
     loops_per_jiffy = cpufreq_scale(global_l_p_j_ref,
                                     global_l_p_j_ref_freq,
                                     freqNew);
+
+#ifdef CONFIG_SMP
     for_each_present_cpu(i) {
         per_cpu(cpu_data, i).loops_per_jiffy = loops_per_jiffy;
     }
+#endif
 }
 
 int meson_cpufreq_boost(unsigned int freq)

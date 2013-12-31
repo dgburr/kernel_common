@@ -15,7 +15,6 @@
 #include <mach/am_regs.h>
 #include <mach/irqs.h>
 #include <mach/card_io.h>
-#include <mach/mod_gate.h>
 #include <linux/cardreader/card_block.h>
 #include <linux/cardreader/cardreader.h>
 #include <linux/cardreader/sdio.h>

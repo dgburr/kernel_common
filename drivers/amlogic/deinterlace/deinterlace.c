@@ -39,6 +39,7 @@
 //#include <linux/aml_common.h>
 #include <asm/uaccess.h>
 #include <mach/am_regs.h>
+#include <plat/fiq_bridge.h>
 
 #include <linux/osd/osd_dev.h>
 #include <linux/amports/vframe.h>
@@ -3971,11 +3972,11 @@ static int di_ioctl(struct inode *node, struct file *file, unsigned int cmd,   u
 #endif
 
 const static struct file_operations di_fops = {
-    .owner    = THIS_MODULE,
-    .open     = di_open,
-    .release  = di_release,
+    .owner          = THIS_MODULE,
+    .open           = di_open,
+    .release        = di_release,
 #ifndef CONFIG_ARCH_MESON6
-    .ioctl    = di_ioctl,
+    .unlocked_ioctl = di_ioctl,
 #endif    
 };
 
@@ -4058,11 +4059,7 @@ static int di_probe(struct platform_device *pdev)
 #else
     Wr(A9_0_IRQ_IN1_INTR_MASK, Rd(A9_0_IRQ_IN1_INTR_MASK)|(1<<14));
 #endif    
-#if defined(CONFIG_ARCH_MESON6)
     sema_init(&di_sema,1);
-#else
-    init_MUTEX(&di_sema);
-#endif    
     di_sema_init_flag=1;
 #ifdef FIQ_VSYNC
 	fiq_handle_item.handle=di_vf_put_isr;

@@ -34,7 +34,6 @@
 #include <linux/amports/vframe_provider.h>
 #include <media/amlogic/656in.h>
 #include <mach/am_regs.h>
-#include <mach/mod_gate.h>
 
 #include "tvin_global.h"
 #include "bt656_601_in.h"

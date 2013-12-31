@@ -807,6 +807,13 @@ static struct class act8xxx_class = {
     .class_attrs = act8xxx_class_attrs,
 };
 
+#define SAMPLE_SIZE 20
+static int capacity_sample_array[SAMPLE_SIZE]={
+-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+};
+static int capacity_sample_pointer = 0;
+
 
 #ifdef CONFIG_PMU_ACT8942
 static int act8942_operations_init(struct act8942_operations* pdata)
@@ -860,13 +867,6 @@ static int act8942_operations_init(struct act8942_operations* pdata)
 	}
 	return 0;
 }
-
-#define SAMPLE_SIZE 20
-static int capacity_sample_array[SAMPLE_SIZE]={
--1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
--1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-};
-static int capacity_sample_pointer = 0;
 
 inline static int measure_capacity_advanced(void)	
 {

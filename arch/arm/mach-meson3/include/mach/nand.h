@@ -396,6 +396,8 @@ struct aml_nand_chip {
 	u8 internal_chipnr;
 	unsigned internal_page_nums;
 
+	unsigned int ran_mode; //def close, for all part
+	unsigned int rbpin_detect; //add for rbpin auto detect
 	unsigned internal_chip_shift;
 	unsigned bch_mode;
 	u8 user_byte_mode;
@@ -417,6 +419,10 @@ struct aml_nand_chip {
     struct semaphore nand_sem;
     int lock_state;
 #endif
+	u8 ecc_cnt_limit;
+	u8 ecc_cnt_cur;
+	u8 ecc_max;
+	unsigned zero_cnt;
 
 	struct mtd_info			mtd;
 	struct nand_chip		chip;
@@ -433,6 +439,7 @@ struct aml_nand_chip {
 	struct cdev				nand_env_cdev;
 
 	struct early_suspend nand_early_suspend;
+	struct class      cls;
 
 	//plateform operation function
 	void	(*aml_nand_hw_init)(struct aml_nand_chip *aml_chip);
@@ -451,21 +458,24 @@ struct aml_nand_chip {
 };
 
 struct aml_nand_platform {
-		struct aml_nand_flash_dev *nand_flash_dev;
-		char *name;
-		unsigned chip_enable_pad;
-		unsigned ready_busy_pad;
+	struct aml_nand_flash_dev *nand_flash_dev;
+	char *name;
+	unsigned chip_enable_pad;
+	unsigned ready_busy_pad;
 
-		unsigned T_REA;
-		unsigned T_RHOH;
-		 		
-		 struct aml_nand_chip  *aml_chip;
-         struct platform_nand_data platform_nand_data;
+	unsigned T_REA;
+	unsigned T_RHOH;
+	unsigned int ran_mode; //def close, for all part
+	unsigned int rbpin_detect;
+
+	struct aml_nand_chip  *aml_chip;
+	struct platform_nand_data platform_nand_data;
 };
 
 struct aml_nand_device {
 	struct aml_nand_platform *aml_nand_platform;
 	u8 dev_num;
+	struct notifier_block nb;
 };
 
 static void inline  nand_get_chip(void )

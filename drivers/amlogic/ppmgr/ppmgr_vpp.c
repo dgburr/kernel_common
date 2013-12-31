@@ -27,7 +27,6 @@
 #include "ppmgr_log.h"
 #include "ppmgr_pri.h"
 #include "ppmgr_dev.h"
-#include <mach/mod_gate.h>
 #define VF_POOL_SIZE 4
 #ifdef CONFIG_POST_PROCESS_MANAGER_PPSCALER
 #define ASS_POOL_SIZE 2

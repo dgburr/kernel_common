@@ -1163,7 +1163,9 @@ static inline bool vpts_expire(vframe_t *cur_vf, vframe_t *next_vf)
 #endif
 }
 
+#if defined(CONFIG_CLK81_DFS)
 extern int check_and_set_clk81(void);
+#endif
 
 static void vsync_notify(void)
 {
@@ -1193,7 +1195,9 @@ static void vsync_notify(void)
 
         video_notify_flag &= ~(VIDEO_NOTIFY_PROVIDER_GET | VIDEO_NOTIFY_PROVIDER_PUT);
     }
+#if defined(CONFIG_CLK81_DFS)
     check_and_set_clk81();
+#endif
 }
 
 #ifdef FIQ_VSYNC

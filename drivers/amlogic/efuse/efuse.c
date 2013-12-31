@@ -20,7 +20,8 @@
 #include <asm/uaccess.h>
 #include <linux/platform_device.h>
 #include <plat/io.h>
-
+#include <mach/reg_addr.h>
+#include <mach/am_regs.h>
 #include <linux/efuse.h>
 #include "efuse_regs.h"
 

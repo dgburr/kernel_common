@@ -19,6 +19,8 @@
 
 #include <mach/nand.h>
 #include <mach/clock.h>
+#include <mach/pinmux.h>
+#include <plat/regops.h>
 
 static char *aml_nand_plane_string[]={
 	"NAND_SINGLE_PLANE_MODE",

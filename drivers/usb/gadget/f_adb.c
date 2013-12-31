@@ -162,10 +162,6 @@ static inline void adb_unlock(atomic_t *excl)
 	atomic_dec(excl);
 }
 
-static int is_adb_open(void)
-{
-	return atomic_read(&_adb_dev->open_excl);
-}
 /* add a request to the tail of a list */
 void adb_req_put(struct adb_dev *dev, struct list_head *head,
 		struct usb_request *req)
