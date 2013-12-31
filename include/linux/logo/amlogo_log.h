@@ -1,12 +1,9 @@
 #ifndef  AMLOGO_LOG_H
 #define AMLOGO_LOG_H
 
-#define DEBUG
-#ifdef  DEBUG
 #define  AMLOG   1
 #define LOG_LEVEL_VAR amlog_level_logo
 #define LOG_MASK_VAR amlog_mask_logo
-#endif
 
 #define  	LOG_LEVEL_MAX 	0xf
 #define	LOG_MASK_ALL	0x0
