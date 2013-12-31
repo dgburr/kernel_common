@@ -20,4 +20,11 @@ config MACH_M3_REF
 	help
 	  Support for Amlogic Meson3 reference development platform.
 
+config MACH_MESON3_STV_MBX_MC
+	select GENERIC_ALLOCATOR
+	bool "Support M3 (geniatech) platform"
+	help
+	  Include support for the AML M3 geniatech board platform.
+
+
 endif # ARCH_MESON3

@@ -7,7 +7,7 @@ obj-y := clock.o   clk_set.o gpio.o time.o usbclock.o usbsetting.o
 obj-m :=
 obj-n :=
 obj-  :=
-#obj-$(CONFIG_ARCH_MESON3)	+= pinmux.o
+obj-$(CONFIG_ARCH_MESON3)	+= pinmux.o
 #obj-$(CONFIG_ARCH_MESON3)	+= gpio.o
 obj-$(CONFIG_ARCH_MESON3)	+= power_gate.o
 #obj-$(CONFIG_ARCH_MESON3)	+= sd_pad.o
@@ -22,6 +22,8 @@ obj-$(CONFIG_MACH_M3_SKT)	+= $(if $(filter y,$(CONFIG_MESON_PLATFORM_API)),board
 plat-api=$(wildcard $(wildcard $(srctree)/$(src)/boards/*.c))
 plat-api:=$(plat-api:$(srctree)/$(src)/%.c=%.o) 
 obj-$(CONFIG_MESON_PLATFORM_API) += $(filter-out $(obj-y),$(plat-api))
+
+obj-$(CONFIG_MACH_MESON3_STV_MBX_MC) += board-stv-mbx-mc.o
 
 # Power Management
 obj-$(CONFIG_SUSPEND)		+= pm.o

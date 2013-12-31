@@ -17,6 +17,84 @@ Linux PINMUX.C
 #define debug(a...) printk(KERN_INFO  a)
 #endif
 
+struct gpio_addr {
+    unsigned long mode_addr;
+    unsigned long out_addr;
+    unsigned long in_addr;
+};
+static struct gpio_addr gpio_addrs[] = {
+    [PREG_PAD_GPIO0] = {PREG_PAD_GPIO0_EN_N, PREG_PAD_GPIO0_O, PREG_PAD_GPIO0_I},
+    [PREG_PAD_GPIO1] = {PREG_PAD_GPIO1_EN_N, PREG_PAD_GPIO1_O, PREG_PAD_GPIO1_I},
+    [PREG_PAD_GPIO2] = {PREG_PAD_GPIO2_EN_N, PREG_PAD_GPIO2_O, PREG_PAD_GPIO2_I},
+    [PREG_PAD_GPIO3] = {PREG_PAD_GPIO3_EN_N, PREG_PAD_GPIO3_O, PREG_PAD_GPIO3_I},
+    [PREG_PAD_GPIO4] = {PREG_PAD_GPIO4_EN_N, PREG_PAD_GPIO4_O, PREG_PAD_GPIO4_I},
+    [PREG_PAD_GPIO5] = {PREG_PAD_GPIO5_EN_N, PREG_PAD_GPIO5_O, PREG_PAD_GPIO5_I},
+    [PREG_PAD_GPIOAO] = {AO_GPIO_O_EN_N,     AO_GPIO_O_EN_N,   AO_GPIO_I},
+};
+
+int set_gpio_mode(gpio_bank_t bank, int bit, gpio_mode_t mode)
+{
+    unsigned long addr = gpio_addrs[bank].mode_addr;
+#ifdef CONFIG_EXGPIO
+    if (bank >= EXGPIO_BANK0) {
+        set_exgpio_mode(bank - EXGPIO_BANK0, bit, mode);
+        return 0;
+    }
+#endif
+    if (bank==PREG_PAD_GPIOAO)
+        WRITE_AOBUS_REG_BITS(addr, mode, bit, 1);
+    else
+        WRITE_CBUS_REG_BITS(addr, mode, bit, 1);
+    return 0;
+}
+
+gpio_mode_t get_gpio_mode(gpio_bank_t bank, int bit)
+{
+    unsigned long addr = gpio_addrs[bank].mode_addr;
+#ifdef CONFIG_EXGPIO
+    if (bank >= EXGPIO_BANK0) {
+        return get_exgpio_mode(bank - EXGPIO_BANK0, bit);
+    }
+#endif
+    if (bank==PREG_PAD_GPIOAO)
+        return (READ_AOBUS_REG_BITS(addr, bit, 1) > 0) ? (GPIO_INPUT_MODE) : (GPIO_OUTPUT_MODE);
+    return (READ_CBUS_REG_BITS(addr, bit, 1) > 0) ? (GPIO_INPUT_MODE) : (GPIO_OUTPUT_MODE);
+}
+
+
+int set_gpio_val(gpio_bank_t bank, int bit, unsigned long val)
+{
+    unsigned long addr = gpio_addrs[bank].out_addr;
+    unsigned int gpio_bit = 0;
+#ifdef CONFIG_EXGPIO
+    if (bank >= EXGPIO_BANK0) {
+        set_exgpio_val(bank - EXGPIO_BANK0, bit, val);
+        return 0;
+    }
+#endif
+	 /* AO output: Because GPIO enable and output use the same register, we need shift 16 bit*/
+	if(bank == PREG_PAD_GPIOAO) { /* AO output need shift 16 bit*/
+		WRITE_AOBUS_REG_BITS(addr, val ? 1 : 0, bit+16, 1);
+	} else {
+		WRITE_CBUS_REG_BITS(addr, val ? 1 : 0, bit, 1);
+	}
+
+    return 0;
+}
+
+unsigned long  get_gpio_val(gpio_bank_t bank, int bit)
+{
+    unsigned long addr = gpio_addrs[bank].in_addr;
+#ifdef CONFIG_EXGPIO
+    if (bank >= EXGPIO_BANK0) {
+        return get_exgpio_val(bank - EXGPIO_BANK0, bit);
+    }
+#endif
+    if(bank == PREG_PAD_GPIOAO) 
+        return READ_AOBUS_REG_BITS(addr, bit, 1);
+    return READ_CBUS_REG_BITS(addr, bit, 1);
+}
+
 #define set_pin_mux_reg(a,b)   if(b!=NOT_EXIST){  a[(b>>5)&0xf]|=(1<<(b&0x1f))  ;}
 static int32_t single_pin_pad(uint32_t  reg_en[P_PIN_MUX_REG_NUM], uint32_t  reg_dis[P_PIN_MUX_REG_NUM],uint32_t pad, uint32_t sig)
 {
