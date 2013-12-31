@@ -24,6 +24,7 @@
 #include <mach/am_regs.h>
 #include <mach/power_gate.h>
 
+static DEFINE_SPINLOCK(mali_clk_lock);
 static DEFINE_SPINLOCK(clockfw_lock);
 
 #ifdef CONFIG_INIT_A9_CLOCK_FREQ
@@ -132,6 +133,22 @@ unsigned int clk_util_clk_msr(unsigned int clk_mux)
     // Return value in MHz*measured_val
     return (regval >> 6);
 }
+
+unsigned long mali_clock_gating_lock(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&mali_clk_lock, flags);
+
+    return flags;
+}
+EXPORT_SYMBOL(mali_clock_gating_lock);
+
+void mali_clock_gating_unlock(unsigned long flags)
+{
+	spin_unlock_irqrestore(&mali_clk_lock, flags);
+}
+EXPORT_SYMBOL(mali_clock_gating_unlock);
 
 
 

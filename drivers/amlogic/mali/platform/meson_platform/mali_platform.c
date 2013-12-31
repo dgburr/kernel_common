@@ -135,9 +135,11 @@ static int mali_meson_rev_detect(void)
     unsigned int_mask;
     int flag = 1;
 
+#ifdef CONFIG_ARCH_MESON6
     if (mali_clk) {
         mali_clk->enable(mali_clk);
     }
+#endif /* CONFIG_ARCH_MESON6 */
 
     /* generate IRQPPMMU0 and see if the interrupt is triggered,
      * revA will see it but revB will not.
@@ -224,6 +226,7 @@ static int mali_meson_rev_detect(void)
     return flag;
 }
 
+#ifdef CONFIG_ARCH_MESON6
 int mali_meson_is_revb(void)
 {
     ///mali_revb_flag=symbol_request(mali_revb_flag);
@@ -234,6 +237,7 @@ int mali_meson_is_revb(void)
     
     return mali_revb_flag;
 }
+#endif /* CONFIG_ARCH_MESON6 */
 
 static void mali_meson_poweron(void)
 {
@@ -339,10 +343,12 @@ static void mali_meson_poweron(void)
 
     kfree((void *)p);
 
+#ifdef CONFIG_ARCH_MESON6
     /* Mali revision detection */
     if (last_power_mode == -1) {
         mali_revb_flag = mali_meson_is_revb();
     }
+#endif /* CONFIG_ARCH_MESON6 */
 }
 
 _mali_osk_errcode_t mali_platform_init(void)
@@ -391,22 +397,29 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 		case MALI_POWER_MODE_LIGHT_SLEEP:
 	    case MALI_POWER_MODE_DEEP_SLEEP:
 		/* Turn on mali clock gating */
+#ifdef CONFIG_ARCH_MESON6
 		if (mali_clk) {
 			mali_clk->disable(mali_clk);
 		}
-		else {
+		else
+#else
+		{
 			spin_lock_irqsave(&lock, flags);
 			CLEAR_CBUS_REG_MASK(HHI_MALI_CLK_CNTL, 1 << 8);
 			spin_unlock_irqrestore(&lock, flags);
 		}
+#endif
 		break;
 
         case MALI_POWER_MODE_ON:
 		/* Turn off MALI clock gating */
+#ifdef CONFIG_ARCH_MESON6
 		if (mali_clk) {
 			mali_clk->enable(mali_clk);
 		}
-		else {
+		else
+#else
+		{
 			spin_lock_irqsave(&lock, flags);
 			CLEAR_CBUS_REG_MASK(HHI_MALI_CLK_CNTL, 1 << 8);
 
@@ -437,6 +450,7 @@ _mali_osk_errcode_t mali_platform_power_mode_change(mali_power_mode power_mode)
 					MALI_DEBUG_PRINT(3, ("(CTS_MALI_CLK) = %d/%d = %dMHz --- when mali gate on\n", ddr_freq, mali_divider, ddr_freq/mali_divider));
 
 		}
+#endif
 
         mali_meson_poweron();
         break;

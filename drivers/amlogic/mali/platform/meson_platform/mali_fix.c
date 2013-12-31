@@ -29,6 +29,7 @@
 
 #include <mach/am_regs.h>
 #include <mach/clock.h>
+#include <plat/io.h>
 
 #include "mali_kernel_common.h"
 #include "mali_osk.h"
@@ -112,9 +113,11 @@ int malifix_get_mmu_int_process_state(int index)
 
 void malifix_init(void)
 {
+#ifdef CONFIG_ARCH_MESON6
     if (!mali_meson_is_revb()) {
         return;
     }
+#endif /* CONFIG_ARCH_MESON6 */
 
     mali_mmu_int_process_state[0] = 0;
     mali_mmu_int_process_state[1] = 0;
@@ -142,9 +145,11 @@ void malifix_init(void)
 
 void malifix_exit(void)
 {
+#ifdef CONFIG_ARCH_MESON6
     if (!mali_meson_is_revb()) {
         return;
     }
+#endif /* CONFIG_ARCH_MESON6 */
 
     del_timer(&timer);
 
